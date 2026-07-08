@@ -1,39 +1,37 @@
-# guide section 3 — giving the agent memory
-# the agent remembers earlier turns on the same thread_id.
+# guide section — "giving your agent memory"
+# a checkpointer saves the conversation; a thread_id ties messages into one chat.
 # run: python3 src/03_agent_with_memory.py
 
 from dotenv import load_dotenv
-from langchain_groq import ChatGroq
 from langchain.agents import create_agent
+from langchain_groq import ChatGroq
 from langgraph.checkpoint.memory import InMemorySaver
 
-# load GROQ_API_KEY from .env
 load_dotenv()
 
 model = ChatGroq(model="llama-3.3-70b-versatile")
 
-# a checkpointer stores conversation state between invokes.
-# InMemorySaver keeps it in RAM (fine for demos).
+# the checkpointer saves conversation state between calls
 agent = create_agent(
-    model,
+    model=model,
     tools=[],
-    system_prompt="you are a friendly assistant with a good memory.",
+    system_prompt="You are a helpful assistant. Be concise and accurate.",
     checkpointer=InMemorySaver(),
 )
 
-# the thread_id ties multiple invokes into one conversation
+# a thread_id labels the conversation — same id = same memory
 config = {"configurable": {"thread_id": "chat-1"}}
 
-# turn 1: tell it a name
-first = agent.invoke(
+# first message
+r1 = agent.invoke(
     {"messages": [{"role": "user", "content": "hi! my name is m0h."}]},
     config,
 )
-print("reply 1:", first["messages"][-1].content)
+print(r1["messages"][-1].content)
 
-# turn 2: same thread_id, so it should recall the name
-second = agent.invoke(
+# second message — same thread_id, so it remembers
+r2 = agent.invoke(
     {"messages": [{"role": "user", "content": "what's my name?"}]},
     config,
 )
-print("reply 2:", second["messages"][-1].content)
+print(r2["messages"][-1].content)

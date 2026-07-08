@@ -1,29 +1,28 @@
-# guide section 1 — your first agent
-# a minimal agent: a free model + a system prompt, no tools yet.
+# guide section — "your first agent"
+# a complete, working agent: free groq model + a system prompt, no tools yet.
 # run: python3 src/01_first_agent.py
 
 from dotenv import load_dotenv
-from langchain_groq import ChatGroq
 from langchain.agents import create_agent
+from langchain_groq import ChatGroq
 
-# load GROQ_API_KEY from .env
+# load your GROQ_API_KEY from the .env file
 load_dotenv()
 
-# a free, fast model on groq (no credit card needed)
+# the brain: a free groq model
 model = ChatGroq(model="llama-3.3-70b-versatile")
 
-# create_agent wires the model into an agent loop.
-# no tools yet — this is just the model reasoning and replying.
+# the agent: model + a system prompt telling it how to behave
 agent = create_agent(
-    model,
+    model=model,
     tools=[],
-    system_prompt="you are a concise, helpful assistant. answer directly.",
+    system_prompt="You are a helpful assistant. Be concise and accurate.",
 )
 
-# invoke with a single user message
+# ask it something
 result = agent.invoke(
-    {"messages": [{"role": "user", "content": "in one sentence, what is an AI agent?"}]}
+    {"messages": [{"role": "user", "content": "explain what an AI agent is in two sentences."}]}
 )
 
-# the final reply is the last message in the returned list
+# print the agent's reply
 print(result["messages"][-1].content)

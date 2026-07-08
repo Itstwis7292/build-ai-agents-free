@@ -1,38 +1,38 @@
-# guide section 4 — provider fallback
-# try groq first; if it fails (rate limit, key issue, outage),
-# fall back to google gemini automatically. both are free.
+# guide section — "the fallback setup"
+# try groq first; if it fails (rate limit / removed model / outage), fall back to gemini.
+# extra install: python3 -m pip install -U langchain-google-genai
+# needs GROQ_API_KEY and GOOGLE_API_KEY in .env
 # run: python3 src/04_agent_with_fallback.py
 
 from dotenv import load_dotenv
+from langchain.agents import create_agent
 from langchain_groq import ChatGroq
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.agents import create_agent
 
-# load GROQ_API_KEY and GOOGLE_API_KEY from .env
 load_dotenv()
 
 
+# define your providers in order of preference — all free
 def get_model():
-    """return a working free model, preferring groq and falling back to gemini."""
     try:
+        # first choice: groq (fastest)
         model = ChatGroq(model="llama-3.3-70b-versatile")
-        # a tiny live call to confirm the model actually responds
-        model.invoke("ping")
+        model.invoke("ping")  # quick test that it actually responds
+        print("using groq")
         return model
     except Exception as e:
-        print(f"groq unavailable ({e}); falling back to google gemini.")
+        # groq is down or rate-limited — fall back to gemini
+        print(f"groq failed ({e}); falling back to gemini")
         return ChatGoogleGenerativeAI(model="gemini-2.5-flash")
 
 
-# build the agent on whichever model is available
 agent = create_agent(
-    get_model(),
+    model=get_model(),
     tools=[],
-    system_prompt="you are a concise, helpful assistant.",
+    system_prompt="You are a helpful assistant. Be concise and accurate.",
 )
 
 result = agent.invoke(
-    {"messages": [{"role": "user", "content": "say hello and name the model provider you think you are."}]}
+    {"messages": [{"role": "user", "content": "say hi and tell me which model you are."}]}
 )
-
 print(result["messages"][-1].content)

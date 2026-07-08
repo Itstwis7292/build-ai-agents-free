@@ -1,12 +1,13 @@
-# guide — the complete agent (all sections combined)
+# guide — the complete agent (bonus: all three upgrades combined)
 # provider fallback (groq -> gemini) + tools (search + word_count) + memory.
+# needs GROQ_API_KEY and GOOGLE_API_KEY in .env
 # run: python3 src/agent.py
 
 from dotenv import load_dotenv
-from langchain_groq import ChatGroq
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.agents import create_agent
 from langchain.tools import tool
+from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_community.tools import DuckDuckGoSearchRun
 from langgraph.checkpoint.memory import InMemorySaver
 
@@ -14,68 +15,57 @@ from langgraph.checkpoint.memory import InMemorySaver
 load_dotenv()
 
 
-# --- section 4: provider fallback ---
+# --- fallback: try groq first, fall back to gemini (both free) ---
 def get_model():
-    """return a working free model, preferring groq and falling back to gemini."""
     try:
         model = ChatGroq(model="llama-3.3-70b-versatile")
-        model.invoke("ping")  # confirm it actually responds
+        model.invoke("ping")  # quick test that it actually responds
+        print("using groq")
         return model
     except Exception as e:
-        print(f"groq unavailable ({e}); falling back to google gemini.")
+        print(f"groq failed ({e}); falling back to gemini")
         return ChatGoogleGenerativeAI(model="gemini-2.5-flash")
 
 
-# --- section 2: tools ---
-search = DuckDuckGoSearchRun()  # free web search, no key
+# --- tools: a prebuilt web search + a function you wrote yourself ---
+search = DuckDuckGoSearchRun()  # free, no key
 
 
 @tool
 def word_count(text: str) -> int:
-    """count the number of words in the given text."""
+    """Count how many words are in a piece of text."""
     return len(text.split())
 
 
-# --- section 3: memory ---
-# InMemorySaver keeps conversation state in RAM across invokes
-checkpointer = InMemorySaver()
-
-# --- assemble the full agent ---
+# --- memory: InMemorySaver keeps conversation state in RAM across calls ---
 agent = create_agent(
-    get_model(),
+    model=get_model(),
     tools=[search, word_count],
     system_prompt=(
-        "you are a helpful research assistant. "
-        "use your tools when they help, and remember the conversation."
+        "You are a helpful assistant. Use your tools when they help answer "
+        "accurately, and remember the conversation."
     ),
-    checkpointer=checkpointer,
+    checkpointer=InMemorySaver(),
 )
 
 
 def main():
-    # one thread_id = one continuous conversation
-    config = {"configurable": {"thread_id": "demo-1"}}
+    # same thread_id = same conversation
+    config = {"configurable": {"thread_id": "chat-1"}}
 
-    # turn 1: give it something to remember + use a tool
-    turn1 = agent.invoke(
-        {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": "my name is m0h. search for what an AI agent is and count the words in your summary.",
-                }
-            ]
-        },
+    # turn 1 — give it something to remember + a task that needs tools
+    r1 = agent.invoke(
+        {"messages": [{"role": "user", "content": "my name is m0h. search for the latest langchain version, then tell me how many words your answer is."}]},
         config,
     )
-    print("agent:", turn1["messages"][-1].content)
+    print(r1["messages"][-1].content)
 
-    # turn 2: same thread, so it should recall the name
-    turn2 = agent.invoke(
+    # turn 2 — same thread, so it should recall the name
+    r2 = agent.invoke(
         {"messages": [{"role": "user", "content": "what's my name?"}]},
         config,
     )
-    print("agent:", turn2["messages"][-1].content)
+    print(r2["messages"][-1].content)
 
 
 if __name__ == "__main__":
